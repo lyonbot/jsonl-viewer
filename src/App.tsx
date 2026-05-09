@@ -1,4 +1,5 @@
 import { StoreProvider, useAppState } from "@/hooks/use-ndjson-store";
+import { AutoExpandProvider } from "@/contexts/auto-expand-context";
 import { Header } from "@/components/Header";
 import { FileDropZone } from "@/components/FileDropZone";
 import { ParseProgress } from "@/components/ParseProgress";
@@ -30,8 +31,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <AppContent />
-    </StoreProvider>
+    <AutoExpandProvider>
+      <StoreProvider>
+        <AppContent />
+      </StoreProvider>
+    </AutoExpandProvider>
   );
 }

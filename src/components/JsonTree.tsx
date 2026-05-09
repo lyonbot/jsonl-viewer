@@ -1,11 +1,13 @@
-import { useState, type ReactNode } from "react";
-import { ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
+import { useState, useEffect, type ReactNode } from "react";
+import { ChevronRight, ChevronDown, Copy, Check, Expand, Minimize2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
+import { useAutoExpand } from "@/contexts/auto-expand-context";
 
 const typeClasses = {
   string: "text-green-600 dark:text-green-400",
@@ -33,18 +35,19 @@ function formatPath(path: PathSegment[]): string {
     .join("");
 }
 
-interface JsonTreeProps {
-  data: unknown;
-  depth?: number;
-  defaultExpanded?: boolean;
+interface KeyPrefixProps {
   keyName?: PathSegment;
-  path?: PathSegment[];
+  path: PathSegment[];
+  data?: unknown;
+  isCollapsible?: boolean;
 }
 
-function KeyPrefix({ keyName, path, data }: { keyName?: PathSegment; path: PathSegment[]; data?: unknown }) {
+function KeyPrefix({ keyName, path, data, isCollapsible }: KeyPrefixProps) {
   if (keyName === undefined) return null;
 
   const pathStr = formatPath(path);
+  const { isAutoExpand, toggle } = useAutoExpand();
+  const autoExpanded = isAutoExpand(pathStr);
 
   const keyEl = typeof keyName === "number" ? (
     <span className="text-muted-foreground select-none mr-1">{keyName}:</span>
@@ -65,9 +68,35 @@ function KeyPrefix({ keyName, path, data }: { keyName?: PathSegment; path: PathS
         <ContextMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(data, null, 2))}>
           Copy JSON
         </ContextMenuItem>
+        {isCollapsible && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => toggle(pathStr)}>
+              {autoExpanded ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Remove auto expand</span>
+                </>
+              ) : (
+                <>
+                  <Expand className="w-3.5 h-3.5 shrink-0" />
+                  <span>Always expand this path</span>
+                </>
+              )}
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );
+}
+
+interface JsonTreeProps {
+  data: unknown;
+  depth?: number;
+  defaultExpanded?: boolean;
+  keyName?: PathSegment;
+  path?: PathSegment[];
 }
 
 export function JsonTree({ data, depth = 0, defaultExpanded, keyName, path: parentPath = [] }: JsonTreeProps) {
@@ -281,7 +310,16 @@ function CollapsibleNode({
   defaultExpanded: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultExpanded);
+  const pathStr = formatPath(path);
+  const { isAutoExpand } = useAutoExpand();
+  const [open, setOpen] = useState(() => defaultExpanded || isAutoExpand(pathStr));
+
+  // Expand when path is added to auto-expand list
+  useEffect(() => {
+    if (isAutoExpand(pathStr)) {
+      setOpen(true);
+    }
+  }, [isAutoExpand, pathStr]);
 
   const toggle = () => setOpen(!open);
 
@@ -300,7 +338,7 @@ function CollapsibleNode({
         </span>
         <span className="ml-0.5 inline-flex items-center">
           <span className="cursor-pointer" onClick={toggle}>
-            <KeyPrefix keyName={keyName} path={path} data={data} />
+            <KeyPrefix keyName={keyName} path={path} data={data} isCollapsible />
           </span>
           <span className="text-muted-foreground text-xs cursor-pointer" onClick={toggle}>
             {open ? bracket[0] : `${bracket[0]} ${label} ${bracket[1]}`}
